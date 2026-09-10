@@ -107,12 +107,19 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     variable in the executed SQL. This lets other triggers know when
     they should ignore execution
     """
+    prepend_sql = context.get("pg_prepend_sql")
     if _can_inject_variable(context["cursor"], sql):
         serialized_ignore = "{" + ",".join(_ignore.value) + "}"
-        sql = _query_to_str(sql, context["cursor"])
-        sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
-        params = [serialized_ignore, *(params or ())]
+        if prepend_sql is not None:
+            prepend_sql("SELECT set_config('pgtrigger.ignore', %s, true)", (serialized_ignore,))
+        else:
+            sql = _query_to_str(sql, context["cursor"])
+            sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
+            params = [serialized_ignore, *(params or ())]
 
+    if prepend_sql is not None:
+        # The backend owns prefix execution and exposes only the caller's results.
+        return execute(sql, params, many, context)
     return _execute_wrapper(execute(sql, params, many, context))
 
 
@@ -236,11 +243,17 @@ def _inject_schema(execute, sql, params, many, context):
     A connection execution wrapper that sets the schema
     variable in the executed SQL.
     """
+    prepend_sql = context.get("pg_prepend_sql")
     if _can_inject_variable(context["cursor"], sql) and _schema.value:
         path = ", ".join(val if not val.startswith("$") else f'"{val}"' for val in _schema.value)
-        sql = f"SELECT set_config('search_path', %s, true); {sql}"
-        params = [path, *(params or ())]
+        if prepend_sql is not None:
+            prepend_sql("SELECT set_config('search_path', %s, true)", (path,))
+        else:
+            sql = f"SELECT set_config('search_path', %s, true); {sql}"
+            params = [path, *(params or ())]
 
+    if prepend_sql is not None:
+        return execute(sql, params, many, context)
     return _execute_wrapper(execute(sql, params, many, context))
 
 

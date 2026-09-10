@@ -111,3 +111,8 @@ For information on setting up django-pgtrigger for development and contributing 
 - @kekekekule
 - @peterthomassen
 - @pfouque
+
+### Custom backend integration
+
+See the [structured SQL prefix handoff](docs/command_handoff.md) for an opt-in
+backend protocol that preserves separate SQL statements and parameters.
